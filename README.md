@@ -6,15 +6,15 @@ Many modern communication apps require reading small text, navigating complex me
 
 ## ✨ Features
 * **Zero-Typing Interface:** Users check in by tapping large emotional faces or pressing the microphone.
+* **Instant Telegram Alerts:** Any check-in or voice recording is instantly beamed to a family member's Telegram account, complete with live GPS coordinates.
 * **Native Voice Recording:** Uses the `MediaRecorder` API to capture and play back actual voice messages.
-* **Empathetic AI Narration:** Integrated with the **ElevenLabs API** to provide incredibly natural, calm, and human-like voice responses (with a seamless fallback to the browser's built-in TTS if offline or if no API key is provided).
-* **Dynamic Family Management:** A secure, local-storage-based CRUD interface to manage emergency contacts.
-* **Cross-Platform:** Built as a standard web application, but architected with **Capacitor** to compile natively into an Android mobile application with native microphone and GPS permissions.
+* **Empathetic AI Narration:** Integrated with the **ElevenLabs API** to provide incredibly natural, calm, and human-like voice responses.
+* **Cross-Platform:** Built as a standard web application, but architected with **Capacitor** to compile natively into an Android mobile application.
 
 ## 🛠️ Tech Stack
 * **Frontend:** Vanilla HTML, CSS, JavaScript (No heavy frameworks, highly optimized).
-* **Voice Synthesis:** ElevenLabs TTS API / Web Speech API (SpeechSynthesis).
-* **Voice Capture:** Web `MediaRecorder` API.
+* **Voice Synthesis:** ElevenLabs TTS API / Web Speech API.
+* **Notifications:** Telegram Bot API.
 * **Mobile Architecture:** Ionic Capacitor (for Android packaging).
 
 ## 🚀 How to Test (For Judges)
@@ -22,17 +22,16 @@ Many modern communication apps require reading small text, navigating complex me
 ### 1. Test the Web Version (Easiest)
 You can test the core functionality directly in your browser without installing anything!
 1. Open the `elder-checkin (2).html` file in any modern web browser.
-2. Click the **Microphone** button to test the voice recording workflow.
-3. Click the **⚙️ Settings Gear** in the top right to manage emergency contacts.
+2. Click the **⚙️ Settings Gear** in the top right to configure API keys.
+3. Tap a face or the **Microphone** button to test the workflow.
 
-**Want to hear the Premium AI Voice?**
-By default, the app uses your browser's robotic offline voice. To hear the empathetic ElevenLabs voice:
-1. Click the **⚙️ Settings Gear**.
-2. Paste your own ElevenLabs API Key into the top box.
-3. Leave the Voice ID blank (it defaults to "Antoni", a calm male voice), and click Save!
+**To test the Telegram Integration:**
+1. Open the **⚙️ Settings Gear**.
+2. Paste a valid Telegram Bot Token and your personal Telegram Chat ID.
+3. Click Save, and tap a face. You will receive an instant alert to your phone!
 
 ### 2. Build the Native Android App
-This repository contains the `package.json` and `capacitor.config.json` blueprints for native mobile compilation.
+This repository contains the `package.json`, `www` folder, and `capacitor.config.json` blueprints for native mobile compilation.
 1. Ensure you have Node.js and Android Studio installed.
 2. Run `npm install` in the directory.
 3. Run `npx cap sync android`.
