@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Check-In</title>
+<style>
+  :root{
+    --bg:#faf7f0; --card:#ffffff; --text:#2b2b2b; --sub:#6b6b6b;
+    --green:#4caf6b; --yellow:#e8a33d; --red:#e05a4e; --mic:#4a6fa5;
+    --border:#e5ddd0;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1c1c1e; --card:#2c2c2e; --text:#f2f2f2; --sub:#a0a0a0; --border:#3a3a3c;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1c1c1e; --card:#2c2c2e; --text:#f2f2f2; --sub:#a0a0a0; --border:#3a3a3c;
+  }
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    min-height:100%; padding:24px 16px 40px;
+  }
+  h1{font-size:1.3rem; margin:8px 0 4px; text-align:center;}
+  .sub{color:var(--sub); font-size:.95rem; margin-bottom:22px; text-align:center;}
+  .btn-row{display:flex; gap:18px; margin-bottom:28px; flex-wrap:wrap; justify-content:center;}
+  .face-btn{
+    width:110px; height:110px; border-radius:50%; border:none;
+    font-size:52px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.15); transition:transform .15s;
+  }
+  .face-btn:active{transform:scale(.92);}
+  .good{background:var(--green);} .soso{background:var(--yellow);} .bad{background:var(--red);}
+  .mic-btn{
+    width:72px; height:72px; border-radius:50%; border:2px solid var(--mic);
+    background:var(--card); color:var(--mic); font-size:30px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; margin-bottom:10px;
+  }
+  .mic-btn.listening{background:var(--mic); color:#fff; animation:pulse 1s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,111,165,.5);}100%{box-shadow:0 0 0 20px rgba(74,111,165,0);}}
+  .hint{color:var(--sub); font-size:.85rem; text-align:center; margin-bottom:30px;}
+  .card{
+    width:100%; max-width:420px; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:18px; display:none;
+  }
+  .card.show{display:block;}
+  .family-card{
+    width:100%; max-width:420px; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:16px; margin-bottom:20px;
+  }
+  .family-list{display:flex; flex-direction:column; gap:10px; margin-top:12px;}
+  .family-row{display:flex; gap:8px; align-items:center;}
+  .family-label{width:72px; font-size:.75rem; color:var(--sub); text-transform:uppercase; letter-spacing:.04em;}
+  .family-input{
+    flex:1; border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+    background:var(--bg); color:var(--text); font-size:.95rem;
+  }
+  .badge{display:inline-block; padding:4px 10px; border-radius:8px; font-size:.75rem; font-weight:700; color:#fff; margin-bottom:8px;}
+  .b-ok{background:var(--green);} .b-attention{background:var(--yellow);} .b-urgent{background:var(--red);}
+  .draft-title{font-size:.75rem; letter-spacing:.04em; color:var(--sub); text-transform:uppercase; margin-bottom:6px;}
+  .draft-msg{font-size:1rem; line-height:1.4; margin-bottom:10px;}
+  .location-line{font-size:.82rem; color:var(--sub); margin-top:8px; padding-top:8px; border-top:1px solid var(--border); line-height:1.45;}
+  .decide-line{font-size:.8rem; color:var(--sub); border-top:1px solid var(--border); padding-top:10px;}
+  .reset{margin-top:22px; background:none; border:none; color:var(--mic); font-size:.9rem; cursor:pointer; text-decoration:underline;}
+  .loading{color:var(--sub); font-size:.9rem;}
+  .gear{
+    position:fixed; top:calc(12px + env(safe-area-inset-top,0px)); right:14px;
+    width:38px; height:38px; border-radius:50%; border:1px solid var(--border);
+    background:var(--card); font-size:18px; cursor:pointer; z-index:10;
+  }
+  .lang-panel{
+    display:none; width:100%; max-width:420px; background:var(--card); border:1px solid var(--border);
+    border-radius:14px; padding:14px; margin-bottom:20px;
+  }
+  .lang-panel.show{display:block;}
+  .lang-panel-title{font-size:.8rem; color:var(--sub); margin-bottom:10px;}
+  .lang-opt{
+    display:block; width:100%; text-align:left; padding:12px 14px; margin-bottom:8px;
+    border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text);
+    font-size:1rem; cursor:pointer;
+  }
+  .lang-opt.active{border-color:var(--mic); font-weight:700;}
+  .phone-mock{
+    width:100%; max-width:420px; margin-top:14px; display:none;
+    border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--card);
+  }
+  .phone-mock.show{display:block;}
+  .phone-head{
+    background:#1f6b4a; color:#fff; padding:10px 14px; font-size:.85rem; font-weight:600;
+    display:flex; align-items:center; gap:8px;
+  }
+  .phone-body{padding:14px; background:#e9ede8;}
+  .chat-bubble{
+    background:#fff; border-radius:10px; padding:10px 12px; font-size:.9rem; line-height:1.35;
+    max-width:88%; box-shadow:0 1px 2px rgba(0,0,0,.08);
+  }
+  .chat-bubble.urgent{border-left:4px solid var(--red);}
+  .chat-bubble.attention{border-left:4px solid var(--yellow);}
+  .chat-bubble.ok{border-left:4px solid var(--green);}
+  .chat-time{font-size:.7rem; color:#8a8a8a; margin-top:4px; text-align:right;}
+  .mock-label{
+    text-align:center; font-size:.72rem; color:var(--sub); padding:8px; background:var(--card);
+    border-top:1px dashed var(--border);
+  }
+
+  /* Phase 2: Contact Management Styles */
+  .contact-item { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+  .contact-header { display: flex; justify-content: space-between; align-items: center; }
+  .contact-name { font-weight: bold; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+  .contact-actions button { background: none; border: none; cursor: pointer; color: var(--mic); font-size: 0.9rem; padding: 4px; }
+  .contact-actions button.delete-btn { color: var(--red); }
+  .primary-badge { font-size: 0.7rem; background: var(--yellow); color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: normal; }
+  .contact-details { font-size: 0.85rem; color: var(--sub); display: flex; flex-direction: column; gap: 4px; }
+  
+  .add-contact-btn { width: 100%; padding: 12px; border-radius: 8px; border: 1px dashed var(--mic); background: none; color: var(--mic); font-weight: bold; cursor: pointer; margin-top: 10px; }
+  .contact-form { display: none; flex-direction: column; gap: 10px; border: 1px solid var(--border); padding: 12px; border-radius: 8px; background: var(--bg); margin-top: 10px; }
+  .contact-form.show { display: flex; }
+  .contact-form input, .contact-form select { padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.95rem; background: var(--card); color: var(--text); }
+  .contact-form label { font-size: 0.8rem; color: var(--sub); margin-bottom: -6px; }
+  .contact-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 5px; }
+  .contact-form-actions button { padding: 8px 16px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+  .btn-cancel { background: #e0e0e0; color: #333; }
+  .btn-save { background: var(--green); color: #fff; }
+  
+  /* Phase 3: Microphone Styles */
+  .audio-review { display: none; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 20px; width: 100%; }
+  .audio-review.show { display: flex; }
+  .audio-controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .audio-btn { padding: 12px 20px; border-radius: 24px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.95rem; }
+  .btn-play { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .btn-re-record { background: #e0e0e0; color: #333; }
+  .btn-send { background: var(--green); color: #fff; }
+  .transcription-box { font-size: 0.95rem; color: var(--sub); font-style: italic; text-align: center; max-width: 90%; background: var(--card); padding: 12px; border-radius: 8px; border: 1px dashed var(--border); }
+  
+  .error-msg { color: var(--red); font-size: 0.8rem; display: none; }
+  .error-msg.show { display: block; }
+</style>
+</head>
+<body>
+  <button class="gear" id="gearBtn" aria-label="Change language" title="Family: set language">⚙️</button>
+
+  <div class="lang-panel" id="langPanel">
+    <div class="lang-panel-title">For the family member setting this up — choose the elder's language.</div>
+    <button class="lang-opt" data-lang="en" onclick="setLang('en')">English</button>
+    <button class="lang-opt" data-lang="hi" onclick="setLang('hi')">हिन्दी (Hindi)</button>
+    
+    <div class="lang-panel-title" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+      Premium Voice (ElevenLabs)
+    </div>
+    <input type="password" id="elKeyInput" class="family-input" placeholder="ElevenLabs API Key" style="margin-bottom:8px; width:100%; box-sizing:border-box;" />
+    <input type="text" id="elVoiceInput" class="family-input" placeholder="Voice ID (Default: ErXwobaYiN019PkySvjV)" style="margin-bottom:12px; width:100%; box-sizing:border-box;" />
+    
+    <div class="lang-panel-title" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+      Telegram Notifications (Optional)
+    </div>
+    <input type="password" id="tgTokenInput" class="family-input" placeholder="Telegram Bot Token" style="margin-bottom:8px; width:100%; box-sizing:border-box;" />
+    <input type="text" id="tgChatIdInput" class="family-input" placeholder="Family Chat ID" style="margin-bottom:12px; width:100%; box-sizing:border-box;" />
+
+    <button class="lang-opt" onclick="saveElevenLabs()" style="text-align:center; background:var(--mic); color:#fff; border:none; margin-bottom:5px;">Save Voice Settings</button>
+    <div style="font-size:0.75rem; color:var(--sub); text-align:center;">API Keys are saved securely on your local device only.</div>
+  </div>
+
+  <h1 id="title">How are you today?</h1>
+  <div class="sub" id="subline">Tap a face, or press the mic and speak</div>
+
+  <div class="btn-row">
+    <button class="face-btn good" aria-label="Doing well" onclick="checkIn('good')">😊</button>
+    <button class="face-btn soso" aria-label="So so" onclick="checkIn('soso')">😐</button>
+    <button class="face-btn bad" aria-label="Not well" onclick="checkIn('bad')">😣</button>
+  </div>
+
+  <button class="mic-btn" id="micBtn" aria-label="Speak instead">🎤</button>
+  <div class="hint" id="hint">No reading or typing needed</div>
+  
+  <div class="audio-review" id="audioReview">
+    <div class="transcription-box" id="transcriptionBox" style="display:none;"></div>
+    <div class="audio-controls">
+      <button class="audio-btn btn-play" id="btnPlay" aria-label="Play Recording">▶️ Play</button>
+      <button class="audio-btn btn-re-record" id="btnReRecord" aria-label="Record Again">🔄 Retry</button>
+      <button class="audio-btn btn-send" id="btnSend" aria-label="Send Message">📤 Send</button>
+    </div>
+  </div>
+
+
+  <div class="family-card" id="familyCard">
+    <div class="draft-title">Family contacts</div>
+    <div class="family-list" id="familyList">
+      <!-- Dynamic contacts injected here -->
+    </div>
+    <button class="add-contact-btn" id="addContactBtn" aria-label="Add Contact">+ Add Contact</button>
+    
+    <div class="contact-form" id="contactForm">
+      <input type="hidden" id="contactId" />
+      
+      <label for="contactName">Name *</label>
+      <input type="text" id="contactName" placeholder="e.g. John Doe" required />
+      
+      <label for="contactRel">Relationship (optional)</label>
+      <input type="text" id="contactRel" placeholder="e.g. Son, Friend" />
+      
+      <label for="contactPhone">Mobile Number (with country code) *</label>
+      <input type="tel" id="contactPhone" placeholder="+91 98765 43210" required />
+      <span class="error-msg" id="phoneError">Invalid phone format or duplicate entry.</span>
+      
+      <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        <input type="checkbox" id="contactPrimary" style="width:auto;" />
+        Primary Emergency Contact
+      </label>
+      
+      <div class="contact-form-actions">
+        <button class="btn-cancel" id="btnCancelContact">Cancel</button>
+        <button class="btn-save" id="btnSaveContact">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="card">
+    <div id="badgeWrap"></div>
+    <div class="draft-title">Alert sent to family via Telegram</div>
+    <div class="draft-msg" id="draftMsg"></div>
+    <div class="location-line" id="locationLine">Location: waiting for permission…</div>
+    <div class="decide-line">This alert and your live location have been instantly sent to your family's Telegram.</div>
+  </div>
+
+  <div class="phone-mock" id="phoneMock">
+    <div class="phone-head">📱 &nbsp; Family member's phone (preview)</div>
+    <div class="phone-body">
+      <div class="chat-bubble" id="chatBubble">
+        <div id="chatText"></div>
+        <div class="chat-time">now</div>
+      </div>
+    </div>
+    <div class="mock-label">🔒 Preview only — no real message is sent in this demo</div>
+  </div>
+
+  <button class="reset" id="resetBtn" style="display:none" onclick="reset()">Check in again</button>
+
+<script>
+let sampleFn = null;
+if(typeof claude !== 'undefined' && claude && claude.use){
+  try{
+    claude.use('sample').then(s => sampleFn = s).catch(()=>{});
+  }catch(e){}
+}
+
+const STRINGS = {
+  en: { bcp:'en-IN', title:'How are you today?', sub:'Tap a face, or press the mic and speak',
+    greeting:"Hello. How are you feeling today, and did you take your medicine? Tap a face, or press the microphone and tell me.",
+    askAgain:"How are you feeling today, and did you take your medicine?",
+    thanksGood:"Thank you. I've let your family know you're doing well. Take care.",
+    thanksNoted:"Thank you for telling me. I've noted this for your family to check on you.",
+    listening:"Listening...", micError:"Could not hear you — try tapping a face instead",
+    noReading:"No reading or typing needed", thinking:"Thinking..." },
+  hi: { bcp:'hi-IN', title:'आज आप कैसे हैं?', sub:'चेहरे पर टैप करें, या माइक दबाकर बोलें',
+    greeting:"नमस्ते। आज आप कैसा महसूस कर रहे हैं, और क्या आपने दवा ली? किसी चेहरे पर टैप करें, या माइक दबाकर बताएं।",
+    askAgain:"आज आप कैसा महसूस कर रहे हैं, और क्या आपने दवा ली?",
+    thanksGood:"धन्यवाद। मैंने आपके परिवार को बता दिया है कि आप ठीक हैं। ध्यान रखें।",
+    thanksNoted:"बताने के लिए धन्यवाद। मैंने यह आपके परिवार के लिए नोट कर लिया है।",
+    listening:"सुन रहा हूँ...", micError:"सुन नहीं पाया — कृपया चेहरे पर टैप करें",
+    noReading:"पढ़ने या लिखने की ज़रूरत नहीं", thinking:"सोच रहा हूँ..." },
+  kn: { bcp:'kn-IN', title:'ಇಂದು ಹೇಗಿದ್ದೀರಿ?', sub:'ಮುಖವನ್ನು ಸ್ಪರ್ಶಿಸಿ, ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಮಾತನಾಡಿ',
+    greeting:"ನಮಸ್ಕಾರ. ಇಂದು ನೀವು ಹೇಗಿದ್ದೀರಿ, ಮತ್ತು ಔಷಧಿ ತೆಗೆದುಕೊಂಡಿರಾ? ಒಂದು ಮುಖವನ್ನು ಸ್ಪರ್ಶಿಸಿ, ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಹೇಳಿ.",
+    askAgain:"ಇಂದು ನೀವು ಹೇಗಿದ್ದೀರಿ, ಮತ್ತು ಔಷಧಿ ತೆಗೆದುಕೊಂಡಿರಾ?",
+    thanksGood:"ಧನ್ಯವಾದಗಳು. ನಿಮ್ಮ ಕುಟುಂಬಕ್ಕೆ ನೀವು ಚೆನ್ನಾಗಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿದ್ದೇನೆ. ಜಾಗ್ರತೆ.",
+    thanksNoted:"ತಿಳಿಸಿದ್ದಕ್ಕೆ ಧನ್ಯವಾದಗಳು. ಇದನ್ನು ನಿಮ್ಮ ಕುಟುಂಬಕ್ಕಾಗಿ ಗುರುತಿಸಿದ್ದೇನೆ.",
+    listening:"ಕೇಳುತ್ತಿದ್ದೇನೆ...", micError:"ಕೇಳಲಾಗಲಿಲ್ಲ — ದಯವಿಟ್ಟು ಮುಖವನ್ನು ಸ್ಪರ್ಶಿಸಿ",
+    noReading:"ಓದುವ ಅಥವಾ ಬರೆಯುವ ಅಗತ್ಯವಿಲ್ಲ", thinking:"ಯೋಚಿಸುತ್ತಿದ್ದೇನೆ..." },
+  ne: { bcp:'ne-NP', title:'आज तपाईं कस्तो हुनुहुन्छ?', sub:'अनुहारमा थिच्नुहोस्, वा माइक थिचेर बोलनुहोस्',
+    greeting:"नमस्ते। आज तपाईं कस्तो महसुस गर्दै हुनुहुन्छ, र औषधि खानुभयो? कुनै अनुहारमा थिच्नुहोस्, वा माइक थिचेर भन्नुहोस्।",
+    askAgain:"आज तपाईं कस्तो महसुस गर्दै हुनुहुन्छ, र औषधि खानुभयो?",
+    thanksGood:"धन्यवाद। मैले तपाईंको परिवारलाई भनिदिएको छु कि तपाईं ठिक हुनुहुन्छ। ख्याल राख्नुहोस्।",
+    thanksNoted:"भन्नुभएकोमा धन्यवाद। मैले यो तपाईंको परिवारका लागि नोट गरेको छु।",
+    listening:"सुन्दै छु...", micError:"सुन्न सकिन — कृपया अनुहारमा थिच्नुहोस्",
+    noReading:"पढ्न वा लेख्न आवश्यक छैन", thinking:"सोच्दै छु..." }
+};
+
+let lang = localStorage.getItem('checkin_lang') || 'en';
+
+
+let familyContacts = JSON.parse(localStorage.getItem('family_contacts_v2') || 'null');
+if(!familyContacts) {
+  // Migration from old array
+  let old = JSON.parse(localStorage.getItem('family_contacts') || 'null');
+  if(old && old.length > 0) {
+    familyContacts = old.map((c, i) => ({
+      id: Date.now().toString() + i,
+      name: c.name,
+      relationship: '',
+      phone: c.phone,
+      isPrimary: i === 0
+    }));
+  } else {
+    familyContacts = [];
+  }
+  saveFamilyContacts();
+}
+
+function saveFamilyContacts(){
+  localStorage.setItem('family_contacts_v2', JSON.stringify(familyContacts));
+}
+
+function renderFamilyContacts(){
+  const list = document.getElementById('familyList');
+  list.innerHTML = '';
+
+  if (familyContacts.length === 0) {
+    list.innerHTML = '<div style="color:var(--sub); font-size:0.9rem; text-align:center; padding:10px;">No contacts added yet.</div>';
+    return;
+  }
+
+  familyContacts.forEach((person) => {
+    const item = document.createElement('div');
+    item.className = 'contact-item';
+    
+    const isPrimaryHtml = person.isPrimary ? '<span class="primary-badge">PRIMARY</span>' : '';
+    const relHtml = person.relationship ? `<div class="contact-details"><span>Role: ${person.relationship}</span></div>` : '';
+    
+    item.innerHTML = `
+      <div class="contact-header">
+        <div class="contact-name">${person.name} ${isPrimaryHtml}</div>
+        <div class="contact-actions">
+          <button class="edit-btn" data-id="${person.id}" aria-label="Edit Contact">✏️</button>
+          <button class="delete-btn" data-id="${person.id}" aria-label="Delete Contact">🗑️</button>
+        </div>
+      </div>
+      <div class="contact-details">
+        <span>${person.phone}</span>
+      </div>
+      ${relHtml}
+    `;
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', (e) => editContact(e.target.closest('.edit-btn').dataset.id)));
+  list.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', (e) => deleteContact(e.target.closest('.delete-btn').dataset.id)));
+}
+
+// Contact Form Logic
+const contactForm = document.getElementById('contactForm');
+const addContactBtn = document.getElementById('addContactBtn');
+const btnCancelContact = document.getElementById('btnCancelContact');
+const btnSaveContact = document.getElementById('btnSaveContact');
+const phoneError = document.getElementById('phoneError');
+
+addContactBtn.addEventListener('click', () => {
+  resetContactForm();
+  contactForm.classList.add('show');
+  addContactBtn.style.display = 'none';
+});
+
+btnCancelContact.addEventListener('click', () => {
+  contactForm.classList.remove('show');
+  addContactBtn.style.display = 'block';
+});
+
+btnSaveContact.addEventListener('click', () => {
+  const idInput = document.getElementById('contactId').value;
+  const name = document.getElementById('contactName').value.trim();
+  const rel = document.getElementById('contactRel').value.trim();
+  const phone = document.getElementById('contactPhone').value.trim();
+  const isPrimary = document.getElementById('contactPrimary').checked;
+  
+  phoneError.classList.remove('show');
+  
+  if(!name || !phone) {
+    phoneError.textContent = "Name and phone are required.";
+    phoneError.classList.add('show');
+    return;
+  }
+  
+  // Basic phone validation (allowing digits, spaces, hyphens, plus)
+  const phoneRegex = /^\+?[0-9\s\-]{7,15}$/;
+  if(!phoneRegex.test(phone)) {
+    phoneError.textContent = "Invalid phone number format.";
+    phoneError.classList.add('show');
+    return;
+  }
+  
+  // Duplicate check
+  const duplicate = familyContacts.find(c => c.phone.replace(/\s/g,'') === phone.replace(/\s/g,'') && c.id !== idInput);
+  if (duplicate) {
+    phoneError.textContent = "This phone number is already added.";
+    phoneError.classList.add('show');
+    return;
+  }
+  
+  if (isPrimary) {
+    familyContacts.forEach(c => c.isPrimary = false);
+  }
+  
+  if (idInput) {
+    const idx = familyContacts.findIndex(c => c.id === idInput);
+    if(idx !== -1) {
+      familyContacts[idx] = { id: idInput, name, relationship: rel, phone, isPrimary };
+    }
+  } else {
+    familyContacts.push({
+      id: Date.now().toString(),
+      name, relationship: rel, phone, isPrimary
+    });
+  }
+  
+  // Ensure at least one primary if contacts exist
+  if (familyContacts.length > 0 && !familyContacts.find(c => c.isPrimary)) {
+    familyContacts[0].isPrimary = true;
+  }
+  
+  saveFamilyContacts();
+  renderFamilyContacts();
+  contactForm.classList.remove('show');
+  addContactBtn.style.display = 'block';
+});
+
+function editContact(id) {
+  const c = familyContacts.find(c => c.id === id);
+  if(!c) return;
+  document.getElementById('contactId').value = c.id;
+  document.getElementById('contactName').value = c.name;
+  document.getElementById('contactRel').value = c.relationship;
+  document.getElementById('contactPhone').value = c.phone;
+  document.getElementById('contactPrimary').checked = c.isPrimary;
+  
+  contactForm.classList.add('show');
+  addContactBtn.style.display = 'none';
+  phoneError.classList.remove('show');
+}
+
+function deleteContact(id) {
+  if(confirm("Are you sure you want to delete this contact?")) {
+    familyContacts = familyContacts.filter(c => c.id !== id);
+    if (familyContacts.length > 0 && !familyContacts.find(c => c.isPrimary)) {
+      familyContacts[0].isPrimary = true;
+    }
+    saveFamilyContacts();
+    renderFamilyContacts();
+  }
+}
+
+function resetContactForm() {
+  document.getElementById('contactId').value = '';
+  document.getElementById('contactName').value = '';
+  document.getElementById('contactRel').value = '';
+  document.getElementById('contactPhone').value = '';
+  document.getElementById('contactPrimary').checked = familyContacts.length === 0;
+  phoneError.classList.remove('show');
+}
+
+function getFamilySummary(){
+  if (!familyContacts || familyContacts.length === 0) return 'No family numbers saved.';
+  return familyContacts
+    .filter((person) => person && person.phone && person.phone.trim())
+    .map((person) => `${person.name} ${person.isPrimary?'(Primary)':''}: ${person.phone}`)
+    .join(' | ');
+}
+
+function applyLangUI(){
+  const t = STRINGS[lang];
+  document.getElementById('title').textContent = t.title;
+  document.getElementById('subline').textContent = t.sub;
+  document.getElementById('hint').textContent = t.noReading;
+  document.querySelectorAll('.lang-opt').forEach(b=>{
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  if(recSetLang) recSetLang(t.bcp);
+}
+
+function setLang(code){
+  lang = code;
+  try{ localStorage.setItem('checkin_lang', code); }catch(e){}
+  applyLangUI();
+  document.getElementById('langPanel').classList.remove('show');
+  speak(STRINGS[lang].greeting);
+}
+
+document.getElementById('gearBtn').addEventListener('click', ()=>{
+  document.getElementById('langPanel').classList.toggle('show');
+});
+
+let availableVoices = [];
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    availableVoices = window.speechSynthesis.getVoices();
+  };
+  availableVoices = window.speechSynthesis.getVoices();
+}
+
+// Load existing keys if any
+document.addEventListener('DOMContentLoaded', () => {
+  if(document.getElementById('elKeyInput')) {
+    document.getElementById('elKeyInput').value = localStorage.getItem('elevenlabs_key') || '';
+    document.getElementById('elVoiceInput').value = localStorage.getItem('elevenlabs_voice') || '';
+    document.getElementById('tgTokenInput').value = localStorage.getItem('tg_token') || '';
+    document.getElementById('tgChatIdInput').value = localStorage.getItem('tg_chatid') || '';
+  }
+});
+
+function saveElevenLabs() {
+  const key = document.getElementById('elKeyInput').value.trim();
+  const voice = document.getElementById('elVoiceInput').value.trim();
+  localStorage.setItem('elevenlabs_key', key);
+  localStorage.setItem('elevenlabs_voice', voice);
+  
+  localStorage.setItem('tg_token', document.getElementById('tgTokenInput').value.trim());
+  localStorage.setItem('tg_chatid', document.getElementById('tgChatIdInput').value.trim());
+  
+  document.getElementById('langPanel').classList.remove('show');
+  speak("Settings updated successfully.");
+}
+
+async function sendTelegram(text, audioBlob) {
+  const token = localStorage.getItem('tg_token');
+  const chatId = localStorage.getItem('tg_chatid');
+  if (!token || !chatId) { alert('Telegram Token or Chat ID is missing! Did you click Save Settings?'); return; }
+
+  // Validate Token Format
+  if (!token.match(/^[0-9]+:[a-zA-Z0-9_-]+$/)) {
+    alert("Format Error: Your Telegram Token is typed incorrectly. It should look exactly like: 1234567890:ABCDefGhiJkLmnOpqrstUvwXyz (no spaces, no extra words). Please fix it in the Settings Gear.");
+    return;
+  }
+  
+  // Validate Chat ID Format
+  if (!chatId.match(/^-?[0-9]+$/)) {
+    alert("Format Error: Your Chat ID is typed incorrectly. It should be only numbers (like 987654321). Please fix it in the Settings Gear.");
+    return;
+  }
+
+  try {
+    let response;
+    if (audioBlob) {
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      formData.append('voice', audioBlob, 'voice_message.webm');
+      if(text) formData.append('caption', text);
+      
+      response = await fetch(`https://api.telegram.org/bot${token}/sendVoice`, {
+        method: 'POST',
+        body: formData
+      });
+    } else {
+      response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: text })
+      });
+    }
+    
+    if(!response.ok) {
+      const errText = await response.text();
+      alert("Telegram Error: " + errText);
+      console.error("Telegram error:", errText);
+    }
+  } catch (e) {
+    alert("Telegram Network Error: " + e.message);
+    console.error("Telegram network error:", e);
+  }
+}
+
+
+async function speak(text){
+  const elKey = localStorage.getItem('elevenlabs_key');
+  const elVoice = localStorage.getItem('elevenlabs_voice');
+  
+  if (elKey) {
+    try {
+      const vId = elVoice || "ErXwobaYiN019PkySvjV"; // default fallback if empty
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vId}`, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': elKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: "eleven_multilingual_v2"
+        })
+      });
+      
+      if(response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.play();
+        return; // Successfully played premium voice, exit function
+      } else {
+        const errText = await response.text();
+        console.error("ElevenLabs error:", errText);
+        alert("ElevenLabs API Error: " + errText);
+      }
+    } catch(e) {
+      console.error("ElevenLabs network error:", e);
+      alert("ElevenLabs Network Error: " + e.message);
+    }
+  }
+
+  // Fallback to local Speech Synthesis
+  try{
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = STRINGS[lang].bcp;
+    
+    u.rate = 0.85; 
+    u.pitch = 0.95; 
+    
+    if(availableVoices.length === 0) {
+      availableVoices = window.speechSynthesis.getVoices();
+    }
+    
+    const baseLang = STRINGS[lang].bcp.split('-')[0];
+    const voicesForLang = availableVoices.filter(v => v.lang.startsWith(baseLang));
+    
+    if(voicesForLang.length > 0) {
+      let voice = voicesForLang.find(v => v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google'));
+      if (!voice) voice = voicesForLang.find(v => v.name.includes('Aria') || v.name.includes('Zira') || v.name.includes('Samantha') || v.name.includes('Siri'));
+      if (!voice) voice = voicesForLang[0];
+      u.voice = voice;
+    }
+    
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+let recSetLang = null;
+renderFamilyContacts();
+applyLangUI();
+speak(STRINGS[lang].greeting);
+
+function fallbackClassify(input, isVoiceNote = false){
+  const s = (typeof input === 'string') ? input.toLowerCase() : input;
+  if(isVoiceNote && input === '[Voice Message Recorded]') { return {status_label:'Voice Message', severity:'attention', confidence:'low', draft_message:'Check-in received as a voice message. Please review the audio.'}; }
+  if(s === 'good' || /good|fine|well|ok|took.*medic/.test(s)){
+    return {status_label:'Doing well', severity:'ok', confidence:'high',
+      draft_message:'Check-in received: feeling well, medicine appears taken care of. No action needed — a friendly call is always nice.'};
+  }
+  if(s === 'bad' || /pain|hurt|can\'?t|help|dizzy|fell|sick/.test(s)){
+    return {status_label:'Possible concern', severity:'urgent', confidence:'high',
+      draft_message:'Check-in flagged as concerning — mentioned discomfort or difficulty. Please check in soon.'};
+  }
+  return {status_label:'Mixed / unclear', severity:'attention', confidence:'low',
+    draft_message:'Check-in was unclear or mixed. A quick call to confirm how things are going is recommended.'};
+}
+
+async function classify(input, isVoiceNote = false){
+  if(sampleFn){
+    try{
+      const prompt = `You are drafting a caregiver check-in alert for an elder's family member. `
+        + `This is a DRAFT ONLY — a human family member decides what happens next; you never contact `
+        + `anyone or take any action yourself. Never invent a real name; refer to "your family member". `
+        + `The elder's check-in input may be in English, Hindi, Kannada, or Nepali — understand it in `
+        + `whichever language it's in, but ALWAYS write draft_message in English, since the family `
+        + `member reading it may not read the elder's language. `
+        + `The elder's check-in input was: "${input}". `
+        + `Return ONLY JSON with keys: status_label (short phrase, in English), severity ("ok"|"attention"|"urgent"), `
+        + `confidence ("high"|"low"), draft_message (one short caregiver-facing sentence in English, no name).`;
+      const result = await sampleFn.json(prompt);
+      if(result && result.severity) return result;
+    }catch(e){}
+  }
+  return fallbackClassify(input, isVoiceNote);
+}
+
+async function checkIn(input, isVoiceNote = false){
+    if(!isVoiceNote) { audioBlob = null; }
+  document.getElementById('hint').textContent = STRINGS[lang].thinking;
+  const result = await classify(input, isVoiceNote);
+  await render(result);
+}
+
+function getLocationText(coords){
+  if(!coords){ return 'Location: not available right now.'; }
+  const lat = coords.latitude.toFixed(5);
+  const lon = coords.longitude.toFixed(5);
+  return `Location: ${lat}, ${lon} (live GPS)`.trim();
+}
+
+function getCurrentLocation() {
+  return new Promise((resolve) => {
+    if (!navigator || !navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve(position.coords),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  });
+}
+
+async function render(r){
+  document.getElementById('hint').textContent = STRINGS[lang].noReading;
+  const card = document.getElementById('card');
+  const badgeClass = r.severity === 'urgent' ? 'b-urgent' : (r.severity === 'attention' ? 'b-attention' : 'b-ok');
+  const badgeText = r.severity === 'urgent' ? 'URGENT — please review' : (r.severity === 'attention' ? 'Needs attention' : 'All good');
+  const locationCoords = await getCurrentLocation();
+  const locationText = getLocationText(locationCoords);
+
+  const familySummary = getFamilySummary();
+
+  document.getElementById('badgeWrap').innerHTML =
+    `<span class="badge ${badgeClass}">${badgeText}</span> <span style="color:var(--sub);font-size:.75rem;">confidence: ${r.confidence || 'high'}</span>`;
+  document.getElementById('draftMsg').textContent = 'DRAFT — ' + r.draft_message + ' Family contacts: ' + familySummary;
+  document.getElementById('locationLine').textContent = locationText;
+  card.classList.add('show');
+  document.getElementById('resetBtn').style.display = 'inline';
+
+  const bubble = document.getElementById('chatBubble');
+  bubble.className = 'chat-bubble ' + r.severity;
+  
+  const finalMsg = "Alert: " + r.draft_message + " | " + locationText + " | Family: " + familySummary;
+  document.getElementById('chatText').textContent = finalMsg;
+  document.getElementById('phoneMock').classList.add('show');
+  
+  if (typeof sendTelegram !== 'undefined') {
+    sendTelegram(finalMsg, typeof audioBlob !== 'undefined' ? audioBlob : null);
+  }
+
+  speak(r.severity === 'ok' ? STRINGS[lang].thanksGood : STRINGS[lang].thanksNoted);
+}
+
+function reset(){
+  document.getElementById('card').classList.remove('show');
+  document.getElementById('phoneMock').classList.remove('show');
+  document.getElementById('resetBtn').style.display = 'none';
+  document.getElementById('locationLine').textContent = 'Location: waiting for permission…';
+  speak(STRINGS[lang].askAgain);
+}
+
+
+// Voice input with MediaRecorder and optional SpeechRecognition
+const micBtn = document.getElementById('micBtn');
+const audioReview = document.getElementById('audioReview');
+const btnPlay = document.getElementById('btnPlay');
+const btnReRecord = document.getElementById('btnReRecord');
+const btnSend = document.getElementById('btnSend');
+const transcriptionBox = document.getElementById('transcriptionBox');
+const audioPlayback = new Audio();
+
+let mediaRecorder = null;
+let audioChunks = [];
+let audioBlob = null;
+let currentTranscription = "";
+let recordingStream = null;
+let isRecording = false;
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+
+if (SR) {
+  rec = new SR();
+  rec.lang = STRINGS[lang].bcp;
+  rec.interimResults = true;
+  rec.continuous = true; // keep listening until mediaRecorder stops
+  recSetLang = (bcp) => { if(rec) rec.lang = bcp; };
+  
+  rec.onresult = (e) => {
+    let finalTranscript = '';
+    let interimTranscript = '';
+    for (let i = e.resultIndex; i < e.results.length; ++i) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript;
+      } else {
+        interimTranscript += e.results[i][0].transcript;
+      }
+    }
+    if (finalTranscript) currentTranscription += " " + finalTranscript;
+    // Show interim transcript live
+    const displayTxt = currentTranscription + (interimTranscript ? " " + interimTranscript : "");
+    if (displayTxt.trim()) {
+      transcriptionBox.textContent = `"${displayTxt.trim()}"`;
+      transcriptionBox.style.display = 'block';
+    }
+  };
+  rec.onerror = (e) => { console.log('Speech recognition error', e); };
+}
+
+async function startRecording() {
+  if (isRecording) {
+    stopRecording();
+    return;
+  }
+  
+  try {
+    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(recordingStream);
+    audioChunks = [];
+    currentTranscription = "";
+    transcriptionBox.style.display = 'none';
+    transcriptionBox.textContent = '';
+    
+    mediaRecorder.ondataavailable = event => {
+      if (event.data.size > 0) audioChunks.push(event.data);
+    };
+    
+    mediaRecorder.onstop = () => {
+      audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      audioPlayback.src = URL.createObjectURL(audioBlob);
+      showReviewUI();
+    };
+    
+    mediaRecorder.start();
+    isRecording = true;
+    micBtn.classList.add('listening');
+    document.getElementById('hint').textContent = "Recording... Tap mic again to stop.";
+    
+    if (rec) {
+      try { rec.start(); } catch(e){}
+    }
+    
+  } catch (err) {
+    document.getElementById('hint').textContent = "Mic error: " + err.name + " - " + err.message;
+    console.error(err);
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+  if (recordingStream) {
+    recordingStream.getTracks().forEach(track => track.stop());
+  }
+  if (rec) {
+    try { rec.stop(); } catch(e){}
+  }
+  isRecording = false;
+  micBtn.classList.remove('listening');
+}
+
+function showReviewUI() {
+  micBtn.style.display = 'none';
+  document.getElementById('hint').style.display = 'none';
+  audioReview.classList.add('show');
+  
+  if (currentTranscription.trim()) {
+    transcriptionBox.textContent = `"${currentTranscription.trim()}"`;
+    transcriptionBox.style.display = 'block';
+  } else {
+    transcriptionBox.style.display = 'none';
+  }
+}
+
+function resetMicUI() {
+  micBtn.style.display = 'flex';
+  document.getElementById('hint').style.display = 'block';
+  document.getElementById('hint').textContent = STRINGS[lang].noReading;
+  audioReview.classList.remove('show');
+  audioBlob = null;
+  currentTranscription = "";
+}
+
+btnPlay.onclick = () => {
+  if (audioBlob) {
+    audioPlayback.play();
+  }
+};
+
+btnReRecord.onclick = () => {
+  resetMicUI();
+  startRecording();
+};
+
+btnSend.onclick = () => {
+  resetMicUI();
+  const msg = currentTranscription.trim() || "[Voice Message Recorded]";
+  checkIn(msg, true);
+};
+
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  micBtn.addEventListener('click', startRecording);
+} else {
+  micBtn.style.opacity = '0.4';
+  micBtn.title = 'Microphone recording not supported on this browser';
+}
+
+</script>
+</body>
+</html>
