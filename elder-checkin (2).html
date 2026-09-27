@@ -156,6 +156,13 @@
     </div>
     <input type="password" id="elKeyInput" class="family-input" placeholder="ElevenLabs API Key" style="margin-bottom:8px; width:100%; box-sizing:border-box;" />
     <input type="text" id="elVoiceInput" class="family-input" placeholder="Voice ID (Default: ErXwobaYiN019PkySvjV)" style="margin-bottom:12px; width:100%; box-sizing:border-box;" />
+    
+    <div class="lang-panel-title" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+      Telegram Notifications (Optional)
+    </div>
+    <input type="password" id="tgTokenInput" class="family-input" placeholder="Telegram Bot Token" style="margin-bottom:8px; width:100%; box-sizing:border-box;" />
+    <input type="text" id="tgChatIdInput" class="family-input" placeholder="Family Chat ID" style="margin-bottom:12px; width:100%; box-sizing:border-box;" />
+
     <button class="lang-opt" onclick="saveElevenLabs()" style="text-align:center; background:var(--mic); color:#fff; border:none; margin-bottom:5px;">Save Voice Settings</button>
     <div style="font-size:0.75rem; color:var(--sub); text-align:center;">API Keys are saved securely on your local device only.</div>
   </div>
@@ -216,10 +223,10 @@
 
   <div class="card" id="card">
     <div id="badgeWrap"></div>
-    <div class="draft-title">Draft alert for family — not sent automatically</div>
+    <div class="draft-title">Alert sent to family via Telegram</div>
     <div class="draft-msg" id="draftMsg"></div>
     <div class="location-line" id="locationLine">Location: waiting for permission…</div>
-    <div class="decide-line">A human family member reviews this and decides what to do. The AI never contacts anyone or acts on its own.</div>
+    <div class="decide-line">This alert and your live location have been instantly sent to your family's Telegram.</div>
   </div>
 
   <div class="phone-mock" id="phoneMock">
@@ -489,6 +496,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if(document.getElementById('elKeyInput')) {
     document.getElementById('elKeyInput').value = localStorage.getItem('elevenlabs_key') || '';
     document.getElementById('elVoiceInput').value = localStorage.getItem('elevenlabs_voice') || '';
+    document.getElementById('tgTokenInput').value = localStorage.getItem('tg_token') || '';
+    document.getElementById('tgChatIdInput').value = localStorage.getItem('tg_chatid') || '';
   }
 });
 
@@ -497,9 +506,62 @@ function saveElevenLabs() {
   const voice = document.getElementById('elVoiceInput').value.trim();
   localStorage.setItem('elevenlabs_key', key);
   localStorage.setItem('elevenlabs_voice', voice);
+  
+  localStorage.setItem('tg_token', document.getElementById('tgTokenInput').value.trim());
+  localStorage.setItem('tg_chatid', document.getElementById('tgChatIdInput').value.trim());
+  
   document.getElementById('langPanel').classList.remove('show');
-  speak("Voice settings updated successfully.");
+  speak("Settings updated successfully.");
 }
+
+async function sendTelegram(text, audioBlob) {
+  const token = localStorage.getItem('tg_token');
+  const chatId = localStorage.getItem('tg_chatid');
+  if (!token || !chatId) { alert('Telegram Token or Chat ID is missing! Did you click Save Settings?'); return; }
+
+  // Validate Token Format
+  if (!token.match(/^[0-9]+:[a-zA-Z0-9_-]+$/)) {
+    alert("Format Error: Your Telegram Token is typed incorrectly. It should look exactly like: 1234567890:ABCDefGhiJkLmnOpqrstUvwXyz (no spaces, no extra words). Please fix it in the Settings Gear.");
+    return;
+  }
+  
+  // Validate Chat ID Format
+  if (!chatId.match(/^-?[0-9]+$/)) {
+    alert("Format Error: Your Chat ID is typed incorrectly. It should be only numbers (like 987654321). Please fix it in the Settings Gear.");
+    return;
+  }
+
+  try {
+    let response;
+    if (audioBlob) {
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      formData.append('voice', audioBlob, 'voice_message.webm');
+      if(text) formData.append('caption', text);
+      
+      response = await fetch(`https://api.telegram.org/bot${token}/sendVoice`, {
+        method: 'POST',
+        body: formData
+      });
+    } else {
+      response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: text })
+      });
+    }
+    
+    if(!response.ok) {
+      const errText = await response.text();
+      alert("Telegram Error: " + errText);
+      console.error("Telegram error:", errText);
+    }
+  } catch (e) {
+    alert("Telegram Network Error: " + e.message);
+    console.error("Telegram network error:", e);
+  }
+}
+
 
 async function speak(text){
   const elKey = localStorage.getItem('elevenlabs_key');
@@ -606,6 +668,7 @@ async function classify(input, isVoiceNote = false){
 }
 
 async function checkIn(input, isVoiceNote = false){
+    if(!isVoiceNote) { audioBlob = null; }
   document.getElementById('hint').textContent = STRINGS[lang].thinking;
   const result = await classify(input, isVoiceNote);
   await render(result);
@@ -652,9 +715,14 @@ async function render(r){
 
   const bubble = document.getElementById('chatBubble');
   bubble.className = 'chat-bubble ' + r.severity;
-  const prefix = r.severity === 'urgent' ? '🚨 ' : (r.severity === 'attention' ? '⚠️ ' : '✅ ');
-  document.getElementById('chatText').textContent = prefix + r.draft_message + ' ' + locationText + ' Family: ' + familySummary;
+  
+  const finalMsg = "Alert: " + r.draft_message + " | " + locationText + " | Family: " + familySummary;
+  document.getElementById('chatText').textContent = finalMsg;
   document.getElementById('phoneMock').classList.add('show');
+  
+  if (typeof sendTelegram !== 'undefined') {
+    sendTelegram(finalMsg, typeof audioBlob !== 'undefined' ? audioBlob : null);
+  }
 
   speak(r.severity === 'ok' ? STRINGS[lang].thanksGood : STRINGS[lang].thanksNoted);
 }
